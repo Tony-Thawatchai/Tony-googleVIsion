@@ -1,0 +1,259 @@
+<html>
+  <head>
+    <style>
+      #results {
+        position: fixed;
+        top: 50px;
+        left: 10px;
+        color: white;
+		background-color: blueviolet;
+		  border: 10px solid black;
+      }
+
+      #results span {
+        margin: 5px 5px;
+      }
+
+      video {
+        position: relative;
+        top: 0;
+        left: 0;
+      }
+
+      h1 {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+      }
+
+      button {
+        /* position: fixed;
+        top: 0;
+        left: 0; */
+        z-index: 1;
+        display: block;
+      }
+
+	  
+    </style>
+  </head>
+  <body>
+    <!-- Basic Cloud Vision (Google) Demo -->
+
+    <video autoplay="true" id="videoElement"></video>
+    <div>
+      <button id="vision_button">Analyze</button>
+      <button id="multipleObject_button">multipleObject_button</button>
+      <button id="handwritten_button">Read text</button>
+    </div>
+    <div id="results"></div>
+
+    <script defer>
+      // Access camera
+      var video = document.querySelector("#videoElement");
+      if (navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices
+          .getUserMedia({ video: true })
+          .then(function (stream) {
+            video.srcObject = stream;
+          })
+          .catch(function (err) {
+            console.log("Something went wrong!");
+          });
+      }
+
+      // We only get to work when the vision button is clicked
+      document
+        .querySelector("#vision_button")
+        .addEventListener("click", (evt) => {
+          // extract image as base64, scale it down to reduce data transfer speed
+          var scale = 0.25;
+          var canvas = document.createElement("canvas");
+          canvas.width = video.videoWidth * scale;
+          canvas.height = video.videoHeight * scale;
+          canvas
+            .getContext("2d")
+            .drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          // dataUrl contains base64 version of image
+          var dataUrl = canvas.toDataURL();
+
+          // Fetch to our server.js
+          //   console.log(dataUrl.substring("data:image/png;base64,".length));
+          fetch("http://localhost:8888/visionapi", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              requests: [
+                {
+                  image: {
+                    content: dataUrl.substring("data:image/png;base64,".length),
+                  },
+                },
+              ],
+            }),
+          })
+            .then((resp) => {
+              console.log(resp);
+                console.log(resp.json());
+              return resp.json();
+            })
+            .then((json) => {
+              
+              console.log(json);
+              results.innerHTML = "";
+              json.responses[0].labelAnnotations.forEach((annotation) => {
+                let description = document.createElement("span");
+                let score = document.createElement("span");
+
+                let div = document.createElement("div");
+                description.innerText = annotation.description;
+                score.innerText = annotation.score;
+
+                div.append(description, score);
+
+
+                results.append(div);
+              });
+            });
+        });
+      // multiple object 
+      document
+        .querySelector("#multipleObject_button")
+        .addEventListener("click", (evt) => {
+          // extract image as base64, scale it down to reduce data transfer speed
+          var scale = 0.25;
+          var canvas = document.createElement("canvas");
+          canvas.width = video.videoWidth * scale;
+          canvas.height = video.videoHeight * scale;
+          canvas
+            .getContext("2d")
+            .drawImage(video, 0, 0, canvas.width, canvas.height);
+
+          // dataUrl contains base64 version of image
+          var dataUrl = canvas.toDataURL();
+
+          // Fetch to our server.js
+          //   console.log(dataUrl.substring("data:image/png;base64,".length));
+          fetch("http://localhost:8888/multipleObject_button", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              requests: [
+                {
+                  image: {
+                    content: dataUrl.substring("data:image/png;base64,".length),
+                  },
+                },
+              ],
+            }),
+          })
+            .then((resp) => {
+              console.log(resp);
+              //   console.log(resp.json());
+              return resp.json();
+            })
+            .then((json) => {
+              // Simply output the response
+              console.log(json);
+              results.innerHTML = "";
+              json.responses[0].localizedObjectAnnotations.forEach(
+                (annotation) => {
+                  let description = document.createElement("span");
+                  let score = document.createElement("span");
+
+                  let div = document.createElement("div");
+                  description.innerText = annotation.name;
+                  score.innerText = annotation.score;
+
+                  // create bondary box from response vertices
+                  let vertices = annotation.boundingPoly.normalizedVertices;
+                  console.log(vertices);
+                  let x1 = vertices[0].x * video.videoWidth;
+                  let y1 = vertices[0].y * video.videoHeight;
+                  let x2 = vertices[1].x * video.videoWidth;
+                  let y2 = vertices[1].y * video.videoHeight;
+                  let x3 = vertices[2].x * video.videoWidth;
+                  let y3 = vertices[2].y * video.videoHeight;
+                  let x4 = vertices[3].x * video.videoWidth;
+                  let y4 = vertices[3].y * video.videoHeight;
+
+                  let box = document.createElement("div");
+                  box.style.position = "absolute";
+                  box.style.border = "2px solid red";
+                  box.style.left = x1 + "px";
+                  box.style.top = y1 + "px";
+
+                  box.style.width = x2 - x1 + "px";
+                  box.style.height = y3 - y1 + "px";
+                  console.log(box);
+                  div.append(box);
+
+                  results.append(description, score);
+
+                  results.append(div);
+                }
+              );
+            });
+        });
+
+      // read handwritten text with OCR
+      handwritten_button.addEventListener("click", (evt) => {
+        // extract image as base64, scale it down to reduce data transfer speed
+        var scale = 0.25;
+        var canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth * scale;
+        canvas.height = video.videoHeight * scale;
+        canvas
+          .getContext("2d")
+          .drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // dataUrl contains base64 version of image
+        var dataUrl = canvas.toDataURL();
+
+        // Fetch to our server.js
+        //   console.log(dataUrl.substring("data:image/png;base64,".length));
+        fetch("http://localhost:8888/handwritten", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            requests: [
+              {
+                image: {
+                  content: dataUrl.substring("data:image/png;base64,".length),
+                },
+              },
+            ],
+          }),
+        })
+          .then((resp) => {
+            console.log(resp);
+            //   console.log(resp.json());
+            return resp.json();
+          })
+          .then((json) => {
+            // Simply output the response
+            console.log(json);
+            results.innerHTML = "";
+            const responseText = json.responses[0].textAnnotations[0];
+            let description = document.createElement("span");
+            let score = document.createElement("span");
+
+            let div = document.createElement("div");
+            description.innerText = responseText.description;
+
+            div.append(description);
+
+            results.append(div);
+            console.log(responseText);
+          });
+      });
+    </script>
+  </body>
+</html>
